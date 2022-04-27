@@ -1,4 +1,3 @@
-import { Result } from '@/types';
 <template>
    <div class='check-result' v-if="checkCompleted">
 
@@ -7,7 +6,7 @@ import { Result } from '@/types';
     <div class='check-content'>
 
       <div class='check-result-data'>
-        
+
         <div class="check-result-item" v-for="result of results" v-bind:key='result'>
           <div class='check-result-plagiarism'>
             <div class='check-result-plagiarism-number'>
@@ -60,7 +59,7 @@ export default {
     getTotalPlagiarism(results: Result[]): string {
       if (!results.length) return '0%';
       const total = results.reduce((acc: number, result): number => acc + result.plagiarism, 0) || 0;
-      return total + '%';
+      return Math.round(total) + '%';
     },
   }
 }

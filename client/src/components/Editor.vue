@@ -30,6 +30,7 @@ export default defineComponent({
     editor: null as Editor | null,
     text: '' as string,
     html: '' as string,
+    activeSentence: [0, 0],
     data: {} as {[key: string]: Result }
   }),
   mounted() {
@@ -40,6 +41,7 @@ export default defineComponent({
         Link,
         Highlight.configure({
           HTMLAttributes: { class: 'plag-text' },
+          multicolor: true,
         }),
         Placeholder.configure({
           placeholder: 'Enter text to check…',
@@ -60,7 +62,7 @@ export default defineComponent({
       this.$emit('startCheck');
 
       const text = this.editor.state.doc.textContent;
-      const sentences = text.match(/[A-Z0-9].+?(?=(?<=\w{2,})\.|!|\?(?:\s[A-Z]|\n|$))/g);
+      const sentences = text.match(/(?<!\()[A-Z0-9]([a-z0-9]+)?\s.*?(?=(?:\s\(.*\)\.|\.\s?[A-Z0-9]\s?[a-z0-9]|\.{3}|!|\?|$))/g);
       if (!sentences) return;
 
       await Promise.all(sentences.map(async(sentence) => {
@@ -85,29 +87,63 @@ export default defineComponent({
         sentenceText = Object.keys(this.data).find(key => key.includes(sentenceText)) || '';
       }
 
-      this.selectText(sentenceText);
+      // this.selectText(sentenceText);
       this.$emit('selectSentence', this.data[sentenceText])
     },
-    selectText(text: string) {
-      if (!this.editor) return;
-      const content = this.editor.getText();
-      const from: number = content.indexOf(text);
-      if (!(from >= 0)) return console.error('no from for selection', {text, content, data: this.data, index: content.indexOf(text)});
-      this.editor.chain()
-        .setTextSelection({ from: from + 1, to: from + text.length + 1 })
-        .run();
-    },
+    // selectText(text: string) {
+    //   if (!this.editor) return;
+    //   const content = this.editor.getText();
+    //   const from: number = content.indexOf(text);
+    //   const [activeFrom, activeTo] = this.activeSentence;
+
+    //   if (activeFrom + activeTo > 0) {
+    //      this.editor.chain()
+    //       .setTextSelection({ from: activeFrom, to: activeTo })
+    //       .unsetMark('highlight')
+    //       .setTextSelection({ from: 0, to: 0 })
+    //       .run();
+    //   }
+    //   this.activeSentence[0] = from + 1;
+    //   this.activeSentence[1] = from + text.length + 1
+
+    //   this.editor.chain()
+    //     .setTextSelection({ from: this.activeSentence[0], to: this.activeSentence[1] })
+    //     .setMark('highlight', { color: '#FFEB87' })
+    //     .setTextSelection({ from: 0, to: 0 })
+    //     .run();
+    // },
     highlight(result: Result) {
       if (!this.editor || !result.plagiarism) return;
       const text = this.editor.getText();
       const from: number = text.indexOf(result.test);
+      const length = result.test.length;
+      const sentence =  text.slice(from, from + length);
 
       this.data[result.test] = result;
 
-      this.editor.chain()
-        .setTextSelection({ from: from + 1, to: from + result.test.length + 1 })
-        .setMark('highlight', { color: '#e3c4ca' })
-        .run();
+      const matches: string[] = result.matches || [];
+      const testWords = result.test.match(/\w{3,}/g);
+      
+      result.origin.match(/\w{3,}/g)?.forEach(originMatch => {
+        if (testWords?.includes(originMatch) && !matches.includes(originMatch)) {
+          matches.push(originMatch);
+          console.log('added match', originMatch);
+        }
+      })
+      
+      matches.forEach(match => {
+        const mFrom = from + (new RegExp(` ${match}`, 'i').exec(sentence)?.index || 0);
+        const mLength = match.length;
+        if (mFrom === from) return;
+
+        this.editor?.chain()
+          .focus(mFrom + 2)
+          .setTextSelection({ from: mFrom + 2, to: mFrom + mLength + 2 })
+          .setMark('highlight')
+          .setTextSelection({ from: mFrom + mLength + 2, to: mFrom + mLength + 2 })
+          .run();
+      })
+
     },
 
   }
@@ -155,9 +191,7 @@ export default defineComponent({
   height: 100%;
 }
 mark {
-  background-color: #E89BAC;
-  padding: 0.125em 0;
-  border-radius: 0.25em;
+  background-color: #ffbbca;
   box-decoration-break: clone;
 }
 

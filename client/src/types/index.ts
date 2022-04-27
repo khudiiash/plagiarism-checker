@@ -5,5 +5,6 @@ export interface Result {
   test: string,
   origin: string,
   plagiarism: number,
+  matches: string[],
   title?: string,
 }
